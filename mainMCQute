@@ -1,0 +1,181 @@
+import sys
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import QCoreApplication, Qt
+from PyQt5.QtGui import QIcon,QIntValidator,QDoubleValidator,QFont
+import pandas as pd
+from selectfile import*
+import numpy as np
+
+
+class MCQute(QMainWindow):    
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("MCQute")
+        self.score =0   
+        self.current_layout = 0
+        self.widgets = []
+        self.path = "https://raw.githubusercontent.com/devw/spen/main/src/Multiple-Choice-Quiz.csv"
+        central_widget = QWidget()  # Create a central widget
+        layout = QVBoxLayout(central_widget)  
+        label = QLabel("Path to the question file or url")
+        self.textEdit = QLineEdit()
+        self.textEdit.resize(280,40)
+        layout.addWidget(label)
+        layout.addWidget(self.textEdit)
+        button = QPushButton('ok')
+        button.clicked.connect(lambda:self.new_layout())
+        layout.addWidget(button)
+        self.setCentralWidget(central_widget)
+        self.show()
+        
+    
+    def new_layout(self):
+        print(self.path)
+        if self.current_layout == 0:
+            self.path = self.textEdit.text()
+            self.data_frame = pd.read_csv(self.path)
+            print(self.data_frame)
+        if self.current_layout < len(self.data_frame):
+            self.make_layouts()
+        
+            
+            self.current_layout += 1 # Create a central widget
+        else:
+            central_widget = QWidget()  # Create a central widget
+            layout = QVBoxLayout(central_widget)   
+            label = QLabel("Congrats, you nailed it !")
+            layout.addWidget(label)
+            widget = QWidget()
+            widget.setLayout(layout)
+            self.setCentralWidget(widget)
+        
+
+    def make_layouts(self):
+        
+        a = self.current_layout 
+        if self.data_frame.iloc[a,0] == 'radio':
+            central_widget = QWidget()  # Create a central widget
+            layout = QVBoxLayout(central_widget)   
+            label = QLabel(self.data_frame.iloc[a,1])
+            layout.addWidget(label)
+            answers = self.data_frame.iloc[a,2].split(';')
+            self.current = 'None'
+            for answer in answers:
+                radiobutton = QRadioButton(answer)
+                radiobutton.value = self.No_front_space(answer)
+                radiobutton.correct_answer = self.No_front_space(self.data_frame.iloc[a,3])
+                radiobutton.hint = self.data_frame.iloc[a,4]
+                radiobutton.toggled.connect(self.radio)
+                layout.addWidget(radiobutton)
+                                
+            button = QPushButton('ok')
+            button.clicked.connect(lambda:self.check_answer(self.current, self.data_frame.iloc[a,3], self.data_frame.iloc[a,4]))
+            layout.addWidget(button)
+                
+            widget = QWidget()
+            widget.setLayout(layout)
+            self.setCentralWidget(widget)
+                
+
+
+                
+        if self.data_frame.iloc[a,0] == 'text':
+            central_widget = QWidget()  # Create a central widget
+            layout = QVBoxLayout(central_widget)   
+            label = QLabel(self.data_frame.iloc[a,1])
+            layout.addWidget(label)
+            
+            self.lineEdit = QLineEdit()
+            layout.addWidget(self.lineEdit)
+                                
+            button = QPushButton('ok')
+            button.clicked.connect(lambda:self.check_answer(0, self.data_frame.iloc[a,3], self.data_frame.iloc[a,4], texto =True))
+            layout.addWidget(button)
+                
+            widget = QWidget()
+            widget.setLayout(layout)
+            self.setCentralWidget(widget)
+            
+        if self.data_frame.iloc[a,0] == 'checkbox':
+            central_widget = QWidget()  # Create a central widget
+            layout = QVBoxLayout(central_widget)   
+            label = QLabel(self.data_frame.iloc[a,1])
+            layout.addWidget(label)
+            answers = self.data_frame.iloc[a,2].split(';')
+            correct_answer = self.data_frame.iloc[a,3].split(';')
+            self.current = set()
+            for answer in answers:
+                checkbox = QCheckBox(answer)
+                checkbox.value = self.No_front_space(answer)
+                checkbox.correct_answer = {self.No_front_space(j) for j in correct_answer}
+                checkbox.hint = self.data_frame.iloc[a,4]
+                checkbox.stateChanged.connect(self.checkbox_state_changed)
+                layout.addWidget(checkbox)
+                                
+            button = QPushButton('ok')
+            button.clicked.connect(lambda:self.check_answer(self.current, checkbox.correct_answer, self.data_frame.iloc[a,4]))
+            layout.addWidget(button)
+                
+            widget = QWidget()
+            widget.setLayout(layout)
+            self.setCentralWidget(widget)
+            
+    def checkbox_state_changed(self):
+        sender = self.sender()
+        if sender.isChecked():
+            print(sender.text())
+            self.current.add(self.No_front_space(sender.text()))
+            
+        else:
+            print(sender.text())
+            self.current.remove(self.No_front_space(sender.text()))
+            
+    def radio(self):
+        radioButton = self.sender()
+        if radioButton.isChecked():
+            self.current = radioButton.value
+    
+    def check_answer(self,given, goodOne, hint, texto = False):
+         if texto:
+             if self.lineEdit.text() != goodOne :
+                 print(given)
+                 print(type(given))
+                 print(goodOne)
+                 print(type(goodOne))
+                 self.second_window = HintWindow(hint)
+                 self.second_window.show()
+             else:
+                 self.new_layout()
+         else:
+             if given != goodOne :
+                 print(given)
+                 print(type(given))
+                 print(goodOne)
+                 print(type(goodOne))
+                 self.second_window = HintWindow(hint)
+                 self.second_window.show()
+             else:
+                 self.new_layout()
+             
+    def No_front_space(self, string_with_space):
+        if string_with_space[0] == ' ':
+            string_without_space = string_with_space[1:]
+        else:
+            string_without_space = string_with_space
+        return string_without_space
+ 
+class HintWindow(QWidget):
+    def __init__(self, hint):
+        super().__init__()
+        self.setWindowTitle("Hint")
+        self.label = QLabel(hint)
+        layout = QVBoxLayout()
+        layout.addWidget(self.label)
+        self.setLayout(layout)
+
+ 
+if __name__ == '__main__':  
+    app = QApplication(sys.argv)    
+    main_window = MCQute()
+    main_window.show()
+    sys.exit(app.exec_())
